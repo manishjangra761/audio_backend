@@ -53,10 +53,17 @@ exports.login = async (req, res) => {
                 }
                 accessToken = jwt.sign(payload, accessTokenSecret, { expiresIn: jwt_timeout })
                 refreshToken = jwt.sign(payload, refreshTokenSecret, { expiresIn: '7d' });
+                const cookieSameSite =
+                    process.env.COOKIE_SAMESITE ||
+                    (process.env.NODE_ENV === "production" ? "none" : "lax");
+                const cookieSecure =
+                    process.env.COOKIE_SECURE
+                        ? process.env.COOKIE_SECURE === "true"
+                        : process.env.NODE_ENV === "production";
                 res.cookie("refreshToken", refreshToken, {
                     httpOnly: true,
-                    secure: process.env.NODE_ENV === "production",          // true in production
-                    sameSite: "strict",
+                    secure: cookieSecure,
+                    sameSite: cookieSameSite,
                     maxAge: 7 * 24 * 60 * 60 * 1000
                 })
                     .set("Authorization", `Bearer ${accessToken}`)
@@ -75,10 +82,18 @@ exports.login = async (req, res) => {
 
 exports.logout = (req, res) => {
 
+    const cookieSameSite =
+        process.env.COOKIE_SAMESITE ||
+        (process.env.NODE_ENV === "production" ? "none" : "lax");
+    const cookieSecure =
+        process.env.COOKIE_SECURE
+            ? process.env.COOKIE_SECURE === "true"
+            : process.env.NODE_ENV === "production";
+
     res.clearCookie("refreshToken", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: cookieSecure,
+        sameSite: cookieSameSite,
     });
 
     return res.status(200).json({ message: "Logged out successfully" });

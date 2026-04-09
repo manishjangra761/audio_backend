@@ -14,12 +14,44 @@ const sequelize = require("./config/database");
 const app = express();
 
 // Middleware
+// When behind a proxy (Render/Vercel/NGINX), this is required for secure cookies and correct client IP.
+app.set("trust proxy", 1);
 app.use(helmet());
 // app.use(cors());
-app.use(cors({
-  origin: process.env.CORS_ORIGIN,
-  credentials: true,
-}));
+const isProd = process.env.NODE_ENV === "production";
+const allowedOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const origins = allowedOrigins;
+
+app.use(
+  cors({
+    origin(origin, cb) {
+      // allow non-browser clients (curl, server-to-server, Postman)
+      if (!origin) return cb(null, true);
+      if (origins.includes(origin)) return cb(null, true);
+      // In local development, allow any localhost/127.0.0.1 port by default
+      if (
+        !isProd &&
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(origin)
+      ) {
+        return cb(null, true);
+      }
+      // In local development, also allow common LAN/private IP origins (for testing from phone)
+      if (
+        !isProd &&
+        /^https?:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?\/?$/i.test(
+          origin
+        )
+      ) {
+        return cb(null, true);
+      }
+      return cb(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+  })
+);
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
